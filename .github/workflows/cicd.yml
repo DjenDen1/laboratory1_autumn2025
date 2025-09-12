@@ -1,0 +1,83 @@
+name: CICD
+
+on: [push]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update version
+        id: update-version
+        run: |
+          # Извлекаем текущую версию
+          CURRENT_VERSION=$(grep 'VERSION' version.cpp | cut -d'"' -f2)
+          echo "Current version: $CURRENT_VERSION"
+
+          SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f1)
+          SLIDE2=$(echo $CURRENT_VERSION | cut -d. -f2)
+          SLIDE3=$(echo $CURRENT_VERSION | cut -d. -f3)
+
+          NEW_SLIDE1=$((SLIDE1 + 1))
+          NEW_SLIDE2=$SLIDE2
+          NEW_SLIDE3=$SLIDE3
+
+          if [ $NEW_SLIDE1 -ge 10 ]; then
+            NEW_SLIDE1=0
+            NEW_SLIDE2=$((SLIDE2 + 1))
+
+            if [ $NEW_SLIDE2 -ge 10 ]; then
+              NEW_SLIDE2=0
+              NEW_SLIDE3=$((NEW_SLIDE3 + 1))
+            fi
+          fi
+
+          NEW_VERSION="$NEW_SLIDE1.$NEW_SLIDE2.$NEW_SLIDE3"
+          echo "New Version: $NEW_VERSION"
+
+          # Обновляем версию в version.cpp
+          sed -i "s/const char\* VERSION = \".*\"/const char* VERSION = \"$NEW_VERSION\"/" version.cpp
+
+          # Экспортируем переменные
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit new version
+        run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git add version.cpp
+          git commit -m "CI: Auto-update version to $NEW_VERSION" || echo "No changes to commit"
+          git push
+
+  run-tests:
+    needs: auto-version
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up environment
+        run: |
+          echo "Setting up test environment on ${{ matrix.os }}"
+
+      - name: Run tests
+        run: |
+          echo "Running tests on ${{ matrix.os }}"
+
+      - name: Report results
+        if: always()
+        run: |
+          echo "Test results for ${{ matrix.os }}"
