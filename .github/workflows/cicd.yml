@@ -22,9 +22,9 @@ jobs:
           CURRENT_VERSION=$(grep 'VERSION' version.cpp | cut -d'"' -f2)
           echo "Current version: $CURRENT_VERSION"
 
-          SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f1)
+          SLIDE3=$(echo $CURRENT_VERSION | cut -d. -f1)
           SLIDE2=$(echo $CURRENT_VERSION | cut -d. -f2)
-          SLIDE3=$(echo $CURRENT_VERSION | cut -d. -f3)
+          SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f3)
 
           NEW_SLIDE1=$((SLIDE1 + 1))
           NEW_SLIDE2=$SLIDE2
