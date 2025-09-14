@@ -26,6 +26,7 @@ jobs:
           SLIDE2=$(echo $CURRENT_VERSION | cut -d. -f2)
           SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f3)
 
+          
           NEW_SLIDE1=$((SLIDE1 + 1))
           NEW_SLIDE2=$SLIDE2
           NEW_SLIDE3=$SLIDE3
