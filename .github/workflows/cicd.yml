@@ -22,22 +22,21 @@ jobs:
           CURRENT_VERSION=$(grep 'VERSION' version.cpp | cut -d'"' -f2)
           echo "Current version: $CURRENT_VERSION"
 
-          SLIDE3=$(echo $CURRENT_VERSION | cut -d. -f1)
+          SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f1)
           SLIDE2=$(echo $CURRENT_VERSION | cut -d. -f2)
-          SLIDE1=$(echo $CURRENT_VERSION | cut -d. -f3)
+          SLIDE3=$(echo $CURRENT_VERSION | cut -d. -f3)
 
-          
-          NEW_SLIDE1=$((SLIDE1 + 1))
+          NEW_SLIDE3=$((SLIDE3 + 1))
           NEW_SLIDE2=$SLIDE2
-          NEW_SLIDE3=$SLIDE3
+          NEW_SLIDE1=$SLIDE1
 
-          if [ $NEW_SLIDE1 -ge 10 ]; then
-            NEW_SLIDE1=0
+          if [ $NEW_SLIDE3 -ge 10 ]; then
+            NEW_SLIDE3=0
             NEW_SLIDE2=$((SLIDE2 + 1))
 
             if [ $NEW_SLIDE2 -ge 10 ]; then
               NEW_SLIDE2=0
-              NEW_SLIDE3=$((NEW_SLIDE3 + 1))
+              NEW_SLIDE1=$((NEW_SLIDE1 + 1))
             fi
           fi
 
@@ -78,7 +77,97 @@ jobs:
         run: |
           echo "Running tests on ${{ matrix.os }}"
 
-      - name: Report results
-        if: always()
-        run: |
-          echo "Test results for ${{ matrix.os }}"
+      - name: Upload artifacts (if any)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: |
+            path/to/artifacts/on/${{ matrix.os }}/*
+            # Укажите здесь правильные пути к вашим артефактам для каждой ОС
+
+  create-release:
+    needs: run-tests
+    runs-on: ubuntu-latest
+    # Условие: запускать только если тесты прошли успешно
+    if: success()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
+          body: "Automated release for version ${{ env.NEW_VERSION }}. Built for Linux and Windows."
+          artifacts: artifacts/**/*
+          skipIfReleaseExists: true  # Ключевой параметр: пропустить если релиз уже существует
+          draft: false
+          prerelease: false
+  
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest] # Матрица для Linux и Windows
+        include:
+          - os: ubuntu-latest
+            artifact-name: linux-build
+            build-dir: build
+          - os: windows-latest
+            artifact-name: windows-build
+            build-dir: build/Release
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.25.x' :cite[2]
+
+      - name: Configure CMake
+        run: cmake -B ${{ matrix.build-dir }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build project
+        run: cmake --build ${{ matrix.build-dir }} --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.build-dir }}/*:cite[8] # Загружаем все артефакты из директории сборки
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: artifacts/linux
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: artifacts/windows
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: "Автоматический релиз для Windows и Linux. Собрано с помощью CMake."
+          files: |
+            artifacts/linux/*
+            artifacts/windows/*
+          draft: false
+          prerelease: false
