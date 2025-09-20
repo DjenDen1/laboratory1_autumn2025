@@ -5,7 +5,6 @@
 int main()
 {
     std::cout << "Hello World and version ";
-    
     std::cout << VERSION;
     return 0;
 }

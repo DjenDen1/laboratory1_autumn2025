@@ -1,6 +1,9 @@
 name: CICD
 
-on: [push]
+on:
+  push:
+    branches: [master]
+
 
 permissions:
   contents: write
@@ -109,7 +112,7 @@ jobs:
           draft: false
           prerelease: false
   
-jobs:
+
   build-and-release:
     strategy:
       matrix:
@@ -171,3 +174,52 @@ jobs:
             artifacts/windows/*
           draft: false
           prerelease: false
+   auto-version:
+    runs-on: ubuntu-latest
+    # Запускаем этот job только при пуше в ветку, а не по тегу
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+    steps:
+      # ... ваши шаги по обновлению версии ...
+      - name: Create Git tag and push
+        run: |
+          git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+  build-and-release:
+    needs: auto-version  # Зависит от создания тега
+    # Но также может запускаться независимо при пуше тега
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact-name: linux-build
+            build-dir: build
+          - os: windows-latest
+            artifact-name: windows-build
+            build-dir: build/Release
+    runs-on: ${{ matrix.os }}
+    steps:
+      # ... ваши шаги сборки ...
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      # ... шаги загрузки артефактов ...
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }} # Используем имя тега, который запустил workflow
+          name: Release ${{ github.ref_name }}
+          body: |
+            Автоматический релиз. Собрано с помощью CMake.
+            Событие: ${{ github.event_name }}
+            Коммит: ${{ github.sha }}
+          files: |
+            artifacts/linux/*
+            artifacts/windows/*
+          draft: false
+          prerelease: false
+          update: true  # Пытаться обновить существующий релиз
+          # skip_if_duplicate: false  # Убедитесь, что не пропускается из-за дубликата
