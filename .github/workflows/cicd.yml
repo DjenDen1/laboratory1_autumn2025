@@ -4,13 +4,16 @@ on:
   push:
     branches: [master]
 
-
 permissions:
   contents: write
 
 jobs:
   auto-version:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.actor != 'github-actions'
+    concurrency: 
+      group: auto-version-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout code
@@ -21,7 +24,6 @@ jobs:
       - name: Update version
         id: update-version
         run: |
-          # Извлекаем текущую версию
           CURRENT_VERSION=$(grep 'VERSION' version.cpp | cut -d'"' -f2)
           echo "Current version: $CURRENT_VERSION"
 
@@ -46,77 +48,33 @@ jobs:
           NEW_VERSION="$NEW_SLIDE1.$NEW_SLIDE2.$NEW_SLIDE3"
           echo "New Version: $NEW_VERSION"
 
-          # Обновляем версию в version.cpp
           sed -i "s/const char\* VERSION = \".*\"/const char* VERSION = \"$NEW_VERSION\"/" version.cpp
 
-          # Экспортируем переменные
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Commit new version
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
           git add version.cpp
           git commit -m "CI: Auto-update version to $NEW_VERSION" || echo "No changes to commit"
-          git push
+          git push origin HEAD:master
 
-  run-tests:
+      - name: Create Git tag and push
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+  build-and-release:
     needs: auto-version
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up environment
-        run: |
-          echo "Setting up test environment on ${{ matrix.os }}"
-
-      - name: Run tests
-        run: |
-          echo "Running tests on ${{ matrix.os }}"
-
-      - name: Upload artifacts (if any)
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ matrix.os }}
-          path: |
-            path/to/artifacts/on/${{ matrix.os }}/*
-            # Укажите здесь правильные пути к вашим артефактам для каждой ОС
-
-  create-release:
-    needs: run-tests
-    runs-on: ubuntu-latest
-    # Условие: запускать только если тесты прошли успешно
-    if: success()
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          tag_name: v${{ env.NEW_VERSION }}
-          name: Release v${{ env.NEW_VERSION }}
-          body: "Automated release for version ${{ env.NEW_VERSION }}. Built for Linux and Windows."
-          artifacts: artifacts/**/*
-          skipIfReleaseExists: true  # Ключевой параметр: пропустить если релиз уже существует
-          draft: false
-          prerelease: false
-  
-
-  build-and-release:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest] # Матрица для Linux и Windows
+        os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             artifact-name: linux-build
@@ -125,7 +83,7 @@ jobs:
             artifact-name: windows-build
             build-dir: build/Release
     runs-on: ${{ matrix.os }}
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -133,7 +91,7 @@ jobs:
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.25.x' :cite[2]
+          cmake-version: '3.25.x'
 
       - name: Configure CMake
         run: cmake -B ${{ matrix.build-dir }} -DCMAKE_BUILD_TYPE=Release
@@ -145,11 +103,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.build-dir }}/*:cite[8] # Загружаем все артефакты из директории сборки
+          path: ${{ matrix.build-dir }}/*
 
   create-release:
     needs: build-and-release
     runs-on: ubuntu-latest
+    
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
@@ -166,60 +125,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          body: "Автоматический релиз для Windows и Linux. Собрано с помощью CMake."
-          files: |
-            artifacts/linux/*
-            artifacts/windows/*
-          draft: false
-          prerelease: false
-   auto-version:
-    runs-on: ubuntu-latest
-    # Запускаем этот job только при пуше в ветку, а не по тегу
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
-    steps:
-      # ... ваши шаги по обновлению версии ...
-      - name: Create Git tag and push
-        run: |
-          git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
-          git push origin "v$NEW_VERSION"
-
-  build-and-release:
-    needs: auto-version  # Зависит от создания тега
-    # Но также может запускаться независимо при пуше тега
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            artifact-name: linux-build
-            build-dir: build
-          - os: windows-latest
-            artifact-name: windows-build
-            build-dir: build/Release
-    runs-on: ${{ matrix.os }}
-    steps:
-      # ... ваши шаги сборки ...
-
-  create-release:
-    needs: build-and-release
-    runs-on: ubuntu-latest
-    steps:
-      # ... шаги загрузки артефактов ...
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }} # Используем имя тега, который запустил workflow
-          name: Release ${{ github.ref_name }}
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
           body: |
             Автоматический релиз. Собрано с помощью CMake.
-            Событие: ${{ github.event_name }}
-            Коммит: ${{ github.sha }}
+            Версия: ${{ env.NEW_VERSION }}
           files: |
             artifacts/linux/*
             artifacts/windows/*
           draft: false
           prerelease: false
-          update: true  # Пытаться обновить существующий релиз
-          # skip_if_duplicate: false  # Убедитесь, что не пропускается из-за дубликата
