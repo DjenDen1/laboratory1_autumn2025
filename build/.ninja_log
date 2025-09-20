@@ -1,6 +1,6 @@
 # ninja log v7
-36	133	7794092830776723	CMakeFiles/laboratory1.dir/version.cpp.obj	2682146f060c8b80
-40	436	7794092830776723	CMakeFiles/laboratory1.dir/main.cpp.obj	4d77b85f67c5239b
-460	565	7794092835009610	laboratory1.exe	22944d35ac6c619b
 25	84	7801052551918493	CMakeFiles/laboratory1.dir/version.cpp.obj	2682146f060c8b80
+40	436	7794092830776723	CMakeFiles/laboratory1.dir/main.cpp.obj	4d77b85f67c5239b
 84	203	7801052552504448	laboratory1.exe	22944d35ac6c619b
+22	264	7801055872585136	CMakeFiles/laboratory1.dir/main.cpp.obj	4d77b85f67c5239b
+265	351	7801055875012694	laboratory1.exe	22944d35ac6c619b
