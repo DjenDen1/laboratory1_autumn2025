@@ -62,6 +62,7 @@ jobs:
           git add version.cpp
           git commit -m "CI: Auto-update version to $NEW_VERSION" || echo "No changes to commit"
           git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
+          gh release create v$NEW_VERSION --title "Release v$NEW_VERSION" --notes "Автоматический релиз версии $NEW_VERSION" --target master
           git push origin HEAD:master
           git push origin "v$NEW_VERSION"
 

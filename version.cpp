@@ -1,5 +1,5 @@
 #include "version.h"
-const char* VERSION = "1.0.2";
+const char* VERSION = "1.0.3";
 
 
 
