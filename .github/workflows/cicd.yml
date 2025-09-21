@@ -1,8 +1,8 @@
-name: CICD
+name: CICD with Auto Release
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ jobs:
   auto-version:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.actor != 'github-actions'
-    concurrency: 
+    concurrency:
       group: auto-version-${{ github.ref }}
       cancel-in-progress: true
 
@@ -53,22 +53,20 @@ jobs:
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Commit new version
+      - name: Commit new version and push tag
         env:
-          GH_TOKEN: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Используем встроенный токен
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
           git add version.cpp
           git commit -m "CI: Auto-update version to $NEW_VERSION" || echo "No changes to commit"
-          git push origin HEAD:master
-
-      - name: Create Git tag and push
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
-        run: |
           git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
+          git push origin HEAD:master
           git push origin "v$NEW_VERSION"
+
+    outputs:
+      new_version: ${{ steps.update-version.outputs.new_version }}
 
   build-and-release:
     needs: auto-version
@@ -83,7 +81,7 @@ jobs:
             artifact-name: windows-build
             build-dir: build/Release
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -103,12 +101,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.build-dir }}/*
+          path: ${{ matrix.build-dir }}/
 
   create-release:
-    needs: build-and-release
+    needs: 
+      - auto-version
+      - build-and-release
     runs-on: ubuntu-latest
-    
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
@@ -122,16 +121,19 @@ jobs:
           name: windows-build
           path: artifacts/windows
 
-      - name: Create Release
+      - name: Create Release on GitHub
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.NEW_VERSION }}
-          name: Release v${{ env.NEW_VERSION }}
+          tag_name: v${{ needs.auto-version.outputs.new_version }}
+          name: Release v${{ needs.auto-version.outputs.new_version }}
           body: |
             Автоматический релиз. Собрано с помощью CMake.
-            Версия: ${{ env.NEW_VERSION }}
+            Версия: ${{ needs.auto-version.outputs.new_version }}
+            Сборка включает артефакты для Linux и Windows.
           files: |
             artifacts/linux/*
             artifacts/windows/*
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Явно передаем токен
