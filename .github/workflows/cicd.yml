@@ -55,7 +55,7 @@ jobs:
 
       - name: Commit new version and push tag
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Используем встроенный токен
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
           git config user.email "github-actions@github.com"
           git config user.name "GitHub Actions"
@@ -76,11 +76,13 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            artifact-name: linux-build
+            artifact-name: laboratory1-linux
             build-dir: build
+            exe-path: build/laboratory1
           - os: windows-latest
-            artifact-name: windows-build
+            artifact-name: laboratory1-windows
             build-dir: build/Release
+            exe-path: build/Release/laboratory1.exe
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -97,13 +99,30 @@ jobs:
 
       - name: Build project
         run: cmake --build ${{ matrix.build-dir }} --config Release
+      
+      - name: Find executable file
+        id: find-exe
+        run: |
+          if ["${{matrix.os}}" == "windows-latest"]; then
+            EXE_PATH=$(find ${{ matrix.build-dir }} -name "*.exe" -type f | head -1)
+          else
+            EXE_PATH = $(find ${{matrix.build-dir }} -type f -executable | head -1)
+          fi
+          
+          if [-z "$EXE_PATH"]; then
+            echo "File didn`t founded:"
+            find ${{matrix.build-dir}} -type f
+            exit 1
+          fi
 
-      - name: Upload artifact
+          echo "Founded executable file: " $EXE_PATH
+          echo "exe_path=$EXE_PATH" >> $GITHUB_OUTPUT
+      - name: Upload executable only
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.build-dir }}/
-
+          name: ${{matrix.artifact-name}}
+          path: ${{steps.find-exe.outputs.exe_path}}
+          
   create-release:
     needs: 
       - auto-version
@@ -137,4 +156,5 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Явно передаем токен
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+
