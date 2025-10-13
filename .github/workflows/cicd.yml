@@ -122,24 +122,28 @@ jobs:
         with:
           name: ${{matrix.artifact-name}}
           path: ${{steps.find-exe.outputs.exe_path}}
-          
+
   create-release:
     needs: 
       - auto-version
       - build-and-release
     runs-on: ubuntu-latest
     steps:
-      - name: Download Linux artifact
+      - name: Download Linux executable
         uses: actions/download-artifact@v4
         with:
-          name: linux-build
-          path: artifacts/linux
+          name: laboratory1-linux
+          path: artifacts/
 
-      - name: Download Windows artifact
+
+      - name: Download Windows executable
         uses: actions/download-artifact@v4
         with:
-          name: windows-build
-          path: artifacts/windows
+          name: laboratory1-windows
+          path: artifacts/
+
+      - name: list download files
+        run: ls -la artifacts/
 
       - name: Create Release on GitHub
         uses: softprops/action-gh-release@v1
@@ -147,12 +151,12 @@ jobs:
           tag_name: v${{ needs.auto-version.outputs.new_version }}
           name: Release v${{ needs.auto-version.outputs.new_version }}
           body: |
-            Автоматический релиз. Собрано с помощью CMake.
-            Версия: ${{ needs.auto-version.outputs.new_version }}
-            Сборка включает артефакты для Linux и Windows.
-          files: |
-            artifacts/linux/*
-            artifacts/windows/*
+            Автоматический релиз версии ${{ needs.auto-version.outputs.new_version }}
+          
+            Содержит:
+              - Исполняемый файл для Linux
+              - Исполняемый файл для Windows (.exe)
+          files: artifacts/*
           draft: false
           prerelease: false
         env:
