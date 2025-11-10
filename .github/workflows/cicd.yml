@@ -53,19 +53,6 @@ jobs:
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Commit new version and push tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-        run: |
-          git config user.email "github-actions@github.com"
-          git config user.name "GitHub Actions"
-          git add version.cpp
-          git commit -m "CI: Auto-update version to $NEW_VERSION" || echo "No changes to commit"
-          git tag -a "v$NEW_VERSION" -m "Auto-generated release tag v$NEW_VERSION"
-          gh release create v$NEW_VERSION --title "Release v$NEW_VERSION" --notes "Автоматический релиз версии $NEW_VERSION" --target master
-          git push origin HEAD:master
-          git push origin "v$NEW_VERSION"
-
     outputs:
       new_version: ${{ steps.update-version.outputs.new_version }}
 
