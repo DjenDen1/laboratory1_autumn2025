@@ -88,16 +88,6 @@ jobs:
       - name: Build with CMake
         run: cmake --build build --config Release
 
-      - name: Create Windows release folder
-        run: |
-          mkdir windows-release
-          copy build\Release\laboratory2.exe windows-release\
-          copy ip_filter.tsv windows-release\
-          echo "Windows release folder created"
-
-      - name: List Windows release contents
-        run: dir windows-release\
-
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -123,17 +113,6 @@ jobs:
 
       - name: Build project
         run: cmake --build build --config Release
-
-      - name: Create Linux release folder
-        run: |
-          mkdir linux-release
-          cp build/laboratory2 linux-release/
-          cp ip_filter.tsv linux-release/
-          chmod +x linux-release/laboratory2
-          echo "Linux release folder created"
-
-      - name: List Linux release contents
-        run: ls -la linux-release/
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -168,21 +147,6 @@ jobs:
           ls -la windows-release/
           echo "Linux release contents:"
           ls -la linux-release/
-
-      - name: Create release archives
-        run: |
-          # Создаем zip архив для Windows
-          cd windows-release
-          zip -r ../laboratory2-windows.zip .
-          cd ..
-          
-          # Создаем tar.gz архив для Linux
-          cd linux-release
-          tar -czf ../laboratory2-linux.tar.gz .
-          cd ..
-          
-          echo "Release archives created"
-          ls -la *.zip *.tar.gz
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
