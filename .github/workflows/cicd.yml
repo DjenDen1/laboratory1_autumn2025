@@ -143,20 +143,10 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            windows-release/laboratory2.exe
-            linux-release/laboratory2
-            ip_filter.tsv
+            windows-release/laboratory1.exe
+            linux-release/laboratory1
+            
           body: |
-            Laboratory 2 Release v${{ github.run_number }}
-            
-            Download files:
-            - laboratory2.exe (Windows executable)
-            - laboratory2 (Linux executable)
-            - ip_filter.tsv (data file - needed for both platforms)
-            
-            Usage:
-            Place ip_filter.tsv in the same folder as the executable
-            
-            Build Info:
+        
             - Build Number: ${{ github.run_number }}
             - Commit: ${{ github.sha }}
